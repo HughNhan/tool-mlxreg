@@ -23,26 +23,21 @@ Collects real-time power consumption data directly from BF-3 DPU hardware via PC
 - **Execution:** Inside privileged container with MFT tools installed
 - **Access:** Direct PCI device access to BF-3 DPU registers
 
-### Container Image
+### Tool Build and Dependencies
 
-The tool requires a container image with MFT (Mellanox Firmware Tools) installed:
+This tool follows the standard Crucible tool build process. The build and dependency installation is defined in `workshop.json`, which handles:
 
-```dockerfile
-FROM registry.access.redhat.com/ubi9/ubi
-RUN yum install -y rpm-build kmod libibverbs libmlx5 && yum clean all
-COPY mft-4.35.0-159-x86_64-rpm.tgz /tmp/
-RUN cd /tmp && tar xzf mft-4.35.0-159-x86_64-rpm.tgz && \
-    rpm -ivh /tmp/mft-4.35.0-159-x86_64-rpm/RPMS/mft-4.35.0-159.x86_64.rpm \
-             /tmp/mft-4.35.0-159-x86_64-rpm/RPMS/mft-mlx5-4.35.0-159.x86_64.rpm && \
-    rm -rf /tmp/mft*
-CMD ["/bin/bash"]
-```
+- MFT (Mellanox Firmware Tools) installation
+- Required system packages and dependencies
+- Userenv container preparation
 
-**Example image:** `quay.io/hnhan/mft-tools:4.35.0`
+See `workshop.json` for the complete build specification and MFT installation details.
 
 ## Hardware Requirements
 
-- NVIDIA BlueField-3 DPU with PCIe access
+- NVIDIA NIC with MFT (Mellanox Firmware Tools) support and PCIe access
+  - Primarily tested with NVIDIA BlueField-3 DPU
+  - Should work with other NVIDIA NICs that support mlxreg utility
 - Container must run with `--privileged` flag
 
 ### Finding Device Addresses
@@ -340,7 +335,7 @@ Commonly used sensors:
 
 ## Deployment
 
-The tool is configured for **worker node deployment** via rickshaw.json:
+The tool is configured for **profiler collector** deployment via rickshaw.json:
 
 ```json
 {
@@ -348,21 +343,22 @@ The tool is configured for **worker node deployment** via rickshaw.json:
     "whitelist": [
       {
         "endpoint": "remotehosts",
-        "collector-types": ["worker"]
+        "collector-types": ["profiler"]
       },
       {
-        "endpoint": "k8s",
-        "collector-types": ["worker"]
+        "endpoint": "kube",
+        "collector-types": ["profiler"]
       }
     ]
   }
 }
 ```
 
-### Why Worker Nodes?
+### Why Profiler Collector Type?
 
-- BF-3 DPU hardware is installed in worker nodes
+- Runs on worker nodes where DPU hardware is physically present
 - Direct PCI access is required (not available remotely)
+- Runs once per node (not per client/server benchmark instance)
 - Tool must run in privileged container on the same host as the DPU
 
 ## Integration with Existing Tools
@@ -482,7 +478,6 @@ Each collecting sensors 1, 2, and 6 every second.
 
 ## References
 
-- [MLX-CONFIG.md](MLX-CONFIG.md) - Detailed mlxreg usage and BF-3 register documentation
 - [Mellanox Firmware Tools (MFT)](https://www.nvidia.com/en-us/networking/ethernet-software/firmware-tools/)
 - [tool-power](https://github.com/perftool-incubator/tool-power) - Redfish-based power collection
 - [Rickshaw Tool Development](https://github.com/perftool-incubator/rickshaw)
